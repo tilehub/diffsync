@@ -173,8 +173,7 @@ Client.prototype.createDiff = function(docA, docB){
  * @param  {Diff} patch
  */
 Client.prototype.applyPatchTo = function(obj, patch){
-    this.emit('diff', patch)
-    this.jsondiffpatch.patch(obj, patch);
+  this.jsondiffpatch.patch(obj, patch);
 };
 
 /**
@@ -252,6 +251,7 @@ Client.prototype.applyServerEdit =  function(editMessage){
 
     if(!isEmpty(editMessage.diff)){
 
+      this.emit('diff', editMessage.diff)
       // versions match
       // 3) patch the shadow
       this.applyPatchTo(this.doc.shadow, editMessage.diff);
