@@ -173,7 +173,7 @@ Client.prototype.createDiff = function(docA, docB){
  * @param  {Diff} patch
  */
 Client.prototype.applyPatchTo = function(obj, patch){
-    this.emit('diff', editMessage.diff)
+    this.emit('diff', patch)
     this.jsondiffpatch.patch(obj, patch);
 };
 
