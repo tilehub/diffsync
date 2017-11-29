@@ -250,6 +250,8 @@ Client.prototype.applyServerEdit =  function(editMessage){
     editMessage.serverVersion === this.doc.serverVersion){
 
     if(!isEmpty(editMessage.diff)){
+
+      this.emit('diff', editMessage.diff)
       // versions match
       // 3) patch the shadow
       this.applyPatchTo(this.doc.shadow, editMessage.diff);
