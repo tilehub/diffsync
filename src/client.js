@@ -231,7 +231,7 @@ Client.prototype.applyServerEdits = function(serverEdits){
   this.syncing = false;
 
   // notify about sync
-  this.emit('synced');
+  this.emit('synced', serverEdits);
 
   // if a sync has been scheduled, sync again
   if(this.scheduled) {
@@ -251,7 +251,6 @@ Client.prototype.applyServerEdit =  function(editMessage){
 
     if(!isEmpty(editMessage.diff)){
 
-      this.emit('diff', editMessage.diff)
       // versions match
       // 3) patch the shadow
       this.applyPatchTo(this.doc.shadow, editMessage.diff);
