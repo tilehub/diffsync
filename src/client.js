@@ -231,7 +231,7 @@ Client.prototype.applyServerEdits = function(serverEdits){
   this.syncing = false;
 
   // notify about sync
-  this.emit('synced', serverEdits);
+  this.emit('synced', serverEdits.edits);
 
   // if a sync has been scheduled, sync again
   if(this.scheduled) {
