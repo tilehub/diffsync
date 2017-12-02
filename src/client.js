@@ -221,6 +221,7 @@ Client.prototype.applyServerEdits = function(serverEdits){
     // 0) delete all previous edits
     this.doc.edits = [];
     // 1) iterate over all edits
+    edits = serverEdits.edits
     serverEdits.edits.forEach(this.applyServerEdit);
   }else{
     // Rejected patch because localVersions don't match
@@ -231,7 +232,7 @@ Client.prototype.applyServerEdits = function(serverEdits){
   this.syncing = false;
 
   // notify about sync
-  this.emit('synced', serverEdits.edits);
+  this.emit('synced', edits);
 
   // if a sync has been scheduled, sync again
   if(this.scheduled) {
