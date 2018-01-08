@@ -4,7 +4,7 @@
   "description": "Real time collaborative editing for JSON objects",
   "main": "index.js",
   "scripts": {
-    "test": "mocha test/**/*.js"
+    "test": ""
   },
   "dependencies": {
     "jsondiffpatch": "^0.1.31",
@@ -20,12 +20,12 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/janmonschke/diffsync.git"
+    "url": "https://github.com/tilehub/diffsync.git"
   },
   "author": "Jan Monschke",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/janmonschke/diffsync/issues"
+    "url": "https://github.com/tilehub/diffsync/issues"
   },
   "keywords": [
     "collaboration",
@@ -35,5 +35,5 @@
     "client",
     "realtime"
   ],
-  "homepage": "https://github.com/janmonschke/diffsync"
+  "homepage": "https://github.com/tilehub/diffsync"
 }

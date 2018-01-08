@@ -2,24 +2,27 @@ var assign        = require('lodash.assign'),
     bind          = require('lodash.bind'),
     isEmpty       = require('lodash.isempty'),
     jsondiffpatch = require('jsondiffpatch'),
+    EventEmitter  = require('events').EventEmitter,
 
     COMMANDS  = require('./commands'),
     utils     = require('./utils'),
     Server;
 
-Server = function(adapter, transport, diffOptions){
-  if(!(adapter && transport)){ throw new Error('Need to specify an adapter and a transport'); }
+Server = function(adapter, diffOptions){
+  if(!(adapter)){ throw new Error('Need to specify an adapter'); }
   if(!diffOptions){ diffOptions = {}; }
 
   this.adapter = adapter;
-  this.transport = transport;
   this.data = {};
   this.requests = {};
   this.saveRequests = {};
   this.saveQueue = {};
 
   // bind functions
-  this.trackConnection = bind(this.trackConnection, this);
+  // this.trackConnection = bind(this.trackConnection, this);
+
+  // let server be an EventEmitter
+  EventEmitter.call(this);
 
   // set up the jsondiffpatch options
   // see here for options: https://github.com/benjamine/jsondiffpatch#options
@@ -29,33 +32,33 @@ Server = function(adapter, transport, diffOptions){
 
   this.jsondiffpatch = jsondiffpatch.create(diffOptions);
 
-  this.transport.on('connection', this.trackConnection);
+  // this.transport.on('connection', this.trackConnection);
 };
 
 /**
  * Registers the correct event listeners
  * @param  {Connection} connection The connection that should get tracked
  */
-Server.prototype.trackConnection = function(connection){
-  connection.on(COMMANDS.join, this.joinConnection.bind(this, connection));
-  connection.on(COMMANDS.syncWithServer, this.receiveEdit.bind(this, connection));
-};
+// Server.prototype.trackConnection = function(connection){
+//   connection.on(COMMANDS.join, this.joinConnection.bind(this, connection));
+//   connection.on(COMMANDS.syncWithServer, this.receiveEdit.bind(this, connection));
+// };
 
+// NOTE: MUST BE CALLED MANUALLY
 /**
  * Joins a connection to a room and send the initial data
- * @param  {Connection} connection
- * @param  {String} room             room identifier
- * @param  {Function} initializeClient Callback that is being used for initialization of the client
+ * @param  {String} documentId
+ * @param  {String} clientId
  */
-Server.prototype.joinConnection = function(connection, room, initializeClient){
-  this.getData(room, function(error, data){
+Server.prototype.joinConnection = function(documentId, clientId){
+  this.getData(documentId, function(error, data){
     // connect to the room
-    connection.join(room);
+    // connection.join(room);
 
     // set up the client version for this socket
     // each connection has a backup and a shadow
     // and a set of edits
-    data.clientVersions[connection.id] = {
+    data.clientVersions[clientId] = {
       backup: {
         doc: utils.deepCopy(data.serverCopy),
         serverVersion: 0
@@ -69,17 +72,18 @@ Server.prototype.joinConnection = function(connection, room, initializeClient){
     };
 
     // send the current server version
-    initializeClient(data.serverCopy);
+    // initializeClient(data.serverCopy);
+    this.emit('server-initial-send', documentId, clientId)
   });
 };
 
 /**
  * Gets data for a room from the internal cache or from the adapter
- * @param  {String}   room     room identifier
+ * @param  {String}   documentId     room identifier
  * @param  {Function} callback notifier-callback
  */
-Server.prototype.getData = function(room, callback){
-  var cachedVersion = this.data[room],
+Server.prototype.getData = function(documentId, callback){
+  var cachedVersion = this.data[documentId],
       cache = this.data,
       requests = this.requests;
 
@@ -90,40 +94,42 @@ Server.prototype.getData = function(room, callback){
     // ask the adapter for the data
     // do nothing in the else case because this operation
     // should only happen once
-    if(!requests[room]){
-      requests[room] = true;
-      this.adapter.getData(room, function(error, data){
-        cache[room] = {
+    if(!requests[documentId]){
+      requests[documentId] = true;
+      this.adapter.getData(documentId, function(error, data){
+        cache[documentId] = {
           registeredSockets: [],
           clientVersions: {},
           serverCopy: data
         };
 
-        requests[room] = false;
-        callback(null, cache[room]);
+        requests[documentId] = false;
+        callback(null, cache[documentId]);
       });
     }else{
-      requests[room] = true;
+      requests[documentId] = true;
     }
   }
 };
 
+// NOTE: MUST BE CALLED MANUALLY
 /**
  * Applies the sent edits to the shadow and the server copy, notifies all connected sockets and saves a snapshot
- * @param  {Object} connection   The connection that sent the edits
+ * @param  {String} clientId
  * @param  {Object} editMessage  The message containing all edits
  * @param  {Function} sendToClient The callback that sends the server changes back to the client
  */
-Server.prototype.receiveEdit = function(connection, editMessage, sendToClient){
+Server.prototype.receiveEdit = function(clientId, editMessage, sendToClient){
   // -1) The algorithm actually says we should use a checksum here, I don't think that's necessary
   // 0) get the relevant doc
   this.getData(editMessage.room, function(err, doc){
     // 0.a) get the client versions
-    var clientDoc = doc.clientVersions[connection.id];
+    var clientDoc = doc.clientVersions[clientId];
 
     // no client doc could be found, client needs to re-auth
     if(err || !clientDoc){
-      connection.emit(COMMANDS.error, 'Need to re-connect!');
+      this.emit('server-error', 'Need to re-connect!');
+      // connection.emit(COMMANDS.error, 'Need to re-connect!');
       return;
     }
 
@@ -168,40 +174,41 @@ Server.prototype.receiveEdit = function(connection, editMessage, sendToClient){
 
     // notify all sockets about the update, if not empty
     if(editMessage.edits.length > 0){
-      this.transport.to(editMessage.room).emit(COMMANDS.remoteUpdateIncoming, connection.id);
+      // this.transport.to(editMessage.room).emit(COMMANDS.remoteUpdateIncoming, connection.id);
+      this.emit('server-update', editMessage.room, clientId)
     }
 
     this.sendServerChanges(doc, clientDoc, sendToClient);
   }.bind(this));
 };
 
-Server.prototype.saveSnapshot = function(room){
-  var noRequestInProgress = !this.saveRequests[room],
+Server.prototype.saveSnapshot = function(documentId){
+  var noRequestInProgress = !this.saveRequests[documentId],
       checkQueueAndSaveAgain = function(){
         // if another save request is in the queue, save again
-        var anotherRequestScheduled = this.saveQueue[room] === true;
-        this.saveRequests[room] = false;
+        var anotherRequestScheduled = this.saveQueue[documentId] === true;
+        this.saveRequests[documentId] = false;
         if(anotherRequestScheduled){
-          this.saveQueue[room] = false;
-          this.saveSnapshot(room);
+          this.saveQueue[documentId] = false;
+          this.saveSnapshot(documentId);
         }
       }.bind(this);
 
   // only save if no save going on at the moment
   if(noRequestInProgress){
-    this.saveRequests[room] = true;
+    this.saveRequests[documentId] = true;
     // get data for saving
-    this.getData(room, function(err, data){
+    this.getData(documentId, function(err, data){
       // store data
       if(!err && data){
-        this.adapter.storeData(room, data.serverCopy, checkQueueAndSaveAgain);
+        this.adapter.storeData(documentId, data.serverCopy, checkQueueAndSaveAgain);
       }else{
         checkQueueAndSaveAgain();
       }
     }.bind(this));
   }else{
     // schedule a new save request
-    this.saveQueue[room] = true;
+    this.saveQueue[documentId] = true;
   }
 };
 

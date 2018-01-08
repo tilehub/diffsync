@@ -8,12 +8,13 @@ var assign        = require('lodash.assign'),
     utils     = require('./utils'),
     Client;
 
-Client = function(socket, room, diffOptions){
-  if(!socket){ throw new Error('No socket specified'); }
+Client = function(clientId, room, diffOptions){
+  if(!clientId){ throw new Error('No clientId specified'); }
   if(!room){ room = ''; }
   if(!diffOptions){ diffOptions = {}; }
 
-  this.socket = socket;
+  // this.socket = socket;
+  this.clientId = clientId;
   this.room = room;
   this.syncing = false;
   this.initialized = false;
@@ -64,7 +65,8 @@ Client.prototype.getData = function(){
 Client.prototype.initialize = function(){
   // connect, join room and initialize
   this.syncing = true;
-  this.socket.emit(COMMANDS.join, this.room, this._onConnected);
+  // this.socket.emit(COMMANDS.join, this.room, this._onConnected);
+  this.emit('client-join', this.room)
 };
 
 /**
@@ -86,19 +88,20 @@ Client.prototype._onConnected = function(initialVersion){
   this.doc.serverVersion = 0;
 
   // listen to incoming updates from the server
-  this.socket.on(COMMANDS.remoteUpdateIncoming, this.onRemoteUpdate);
+  // this.socket.on(COMMANDS.remoteUpdateIncoming, this.onRemoteUpdate);
 
   // notify about established connection
   this.emit('connected');
 };
 
+// NOTE: Call manually
 /**
  * Handler for remote updates
  * @param  {String} fromId id from the socket that initiated the update
  */
 Client.prototype.onRemoteUpdate = function(fromId){
   // only schedule if the update was not initiated by this client
-  if(this.socket.id !== fromId){
+  if(this.clientId !== fromId){
     this.schedule();
   }
 };
@@ -209,7 +212,8 @@ Client.prototype.createEditMessage = function(baseVersion){
  * Send the the edits to the server and applies potential updates from the server
  */
 Client.prototype.sendEdits = function(editMessage){
-  this.socket.emit(COMMANDS.syncWithServer, editMessage, this.applyServerEdits);
+  // this.socket.emit(COMMANDS.syncWithServer, editMessage, this.applyServerEdits);
+  this.emit('client-sync-with-server', editMessage)
 };
 
 /**
