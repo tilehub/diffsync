@@ -32,8 +32,19 @@ Server = function(adapter, diffOptions){
 
   this.jsondiffpatch = jsondiffpatch.create(diffOptions);
 
+  // bind functions
+  var methodsToBind = ['joinConnection', 'getData', 'receiveEdit', 'saveSnapshot', 'sendServerChanges'],
+      method;
+
+  for(var index in methodsToBind){
+      method = methodsToBind[index];
+      this[method] = bind(this[method], this);
+  }
   // this.transport.on('connection', this.trackConnection);
 };
+
+// inherit from EventEmitter
+Client.prototype = new EventEmitter();
 
 /**
  * Registers the correct event listeners
@@ -73,7 +84,7 @@ Server.prototype.joinConnection = function(documentId, clientId){
 
     // send the current server version
     // initializeClient(data.serverCopy);
-    this.emit('server-initial-send', documentId, clientId)
+    this.emit('server-initial-send', documentId, clientId, data.serverCopy)
   });
 };
 
@@ -128,7 +139,7 @@ Server.prototype.receiveEdit = function(clientId, editMessage, sendToClient){
 
     // no client doc could be found, client needs to re-auth
     if(err || !clientDoc){
-      this.emit('server-error', 'Need to re-connect!');
+      this.emit('server-error', clientId, 'Need to re-connect!');
       // connection.emit(COMMANDS.error, 'Need to re-connect!');
       return;
     }

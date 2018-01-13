@@ -69,6 +69,7 @@ Client.prototype.initialize = function(){
   this.emit('client-join', this.room)
 };
 
+// NOTE: Call manually
 /**
  * Sets up the local version and listens to server updates
  * Will notify the `onConnected` callback.
@@ -213,7 +214,7 @@ Client.prototype.createEditMessage = function(baseVersion){
  */
 Client.prototype.sendEdits = function(editMessage){
   // this.socket.emit(COMMANDS.syncWithServer, editMessage, this.applyServerEdits);
-  this.emit('client-sync-with-server', editMessage)
+  this.emit('client-sync-with-server', editMessage, this.applyServerEdits)
 };
 
 /**
