@@ -44,7 +44,7 @@ Server = function(adapter, diffOptions){
 };
 
 // inherit from EventEmitter
-Client.prototype = new EventEmitter();
+Server.prototype = new EventEmitter();
 
 /**
  * Registers the correct event listeners
