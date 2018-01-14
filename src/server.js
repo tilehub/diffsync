@@ -62,6 +62,7 @@ Server.prototype = new EventEmitter();
  * @param  {String} clientId
  */
 Server.prototype.joinConnection = function(documentId, clientId){
+  var self = this;
   this.getData(documentId, function(error, data){
     // connect to the room
     // connection.join(room);
@@ -84,7 +85,7 @@ Server.prototype.joinConnection = function(documentId, clientId){
 
     // send the current server version
     // initializeClient(data.serverCopy);
-    this.emit('server-initial-send', documentId, clientId, data.serverCopy)
+    self.emit('server-initial-send', documentId, clientId, data.serverCopy);
   });
 };
 
